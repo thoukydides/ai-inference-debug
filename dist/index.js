@@ -61553,6 +61553,9 @@ async function run() {
         const customHeaders = parseCustomHeaders(customHeadersInput);
         // Build the inference request with pre-processed messages and response format
         const inferenceRequest = buildInferenceRequest(promptConfig, systemPrompt, prompt, modelName, promptConfig?.modelParameters?.temperature, promptConfig?.modelParameters?.topP, maxTokens, endpoint, token, customHeaders);
+        coreExports.startGroup('actions/ai-inference-debug inferenceRequest');
+        coreExports.info(JSON.stringify(inferenceRequest, null, 4));
+        coreExports.endGroup();
         const enableMcp = coreExports.getBooleanInput('enable-github-mcp') || false;
         let modelResponse = null;
         if (enableMcp) {
