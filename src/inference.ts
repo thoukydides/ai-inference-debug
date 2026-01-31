@@ -44,13 +44,26 @@ export async function simpleInference(request: InferenceRequest): Promise<string
     baseURL: request.endpoint,
     defaultHeaders: request.customHeaders || {},
   })
-
   const chatCompletionRequest: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
     messages: request.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
     max_tokens: request.maxTokens,
     model: request.modelName,
     temperature: request.temperature,
     top_p: request.topP,
+  }
+
+  // Request return of internal reasoning tokens from Gemini 3 models
+  if (request.modelName.startsWith('gemini-3')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const x = chatCompletionRequest as any
+    x.extra_body = {
+      google: {
+        thinking_config: {
+          include_thoughts: true,
+          thinking_level: 'high',
+        },
+      },
+    }
   }
 
   // Add response format if specified
@@ -60,7 +73,27 @@ export async function simpleInference(request: InferenceRequest): Promise<string
   }
 
   const response = await chatCompletion(client, chatCompletionRequest, 'simpleInference')
-  const modelResponse = response.choices[0]?.message?.content
+
+  // Log token usage
+  if (response.usage) {
+    const {prompt_tokens, completion_tokens, total_tokens} = response.usage
+    core.info(`Tokens used: ${total_tokens} (Prompt: ${prompt_tokens}, Completion: ${completion_tokens})`)
+    const reasoningTokens = response.usage.completion_tokens_details?.reasoning_tokens
+    if (reasoningTokens) core.info(`Reasoning tokens included in completion: ${reasoningTokens}`)
+  }
+
+  const message = response.choices[0]?.message
+
+  // Log model thinking process
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reasoning = (message as any)?.reasoning_content
+  if (reasoning) {
+    core.group('Model Thinking Process', async () => {
+      core.info(reasoning)
+    })
+  }
+
+  const modelResponse = message?.content
   core.info(`Model response: ${modelResponse || 'No response content'}`)
   return modelResponse || null
 }
