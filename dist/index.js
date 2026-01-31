@@ -58317,13 +58317,43 @@ async function simpleInference(request) {
         temperature: request.temperature,
         top_p: request.topP,
     };
+    // Request return of internal reasoning tokens from Gemini 3 models
+    if (request.modelName.startsWith('gemini-3')) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const x = chatCompletionRequest;
+        x.extra_body = {
+            google: {
+                thinking_config: {
+                    include_thoughts: true,
+                    thinking_level: 'high',
+                },
+            },
+        };
+    }
     // Add response format if specified
     if (request.responseFormat) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         chatCompletionRequest.response_format = request.responseFormat;
     }
     const response = await chatCompletion(client, chatCompletionRequest, 'simpleInference');
-    const modelResponse = response.choices[0]?.message?.content;
+    // Log token usage
+    if (response.usage) {
+        const { prompt_tokens, completion_tokens, total_tokens } = response.usage;
+        coreExports.info(`Tokens used: ${total_tokens} (Prompt: ${prompt_tokens}, Completion: ${completion_tokens})`);
+        const reasoningTokens = response.usage.completion_tokens_details?.reasoning_tokens;
+        if (reasoningTokens)
+            coreExports.info(`Reasoning tokens included in completion: ${reasoningTokens}`);
+    }
+    const message = response.choices[0]?.message;
+    // Log model thinking process
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reasoning = message?.reasoning_content;
+    if (reasoning) {
+        coreExports.group('Model Thinking Process', async () => {
+            coreExports.info(reasoning);
+        });
+    }
+    const modelResponse = message?.content;
     coreExports.info(`Model response: ${modelResponse || 'No response content'}`);
     return modelResponse || null;
 }
