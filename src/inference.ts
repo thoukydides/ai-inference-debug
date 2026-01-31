@@ -91,7 +91,7 @@ export async function simpleInference(request: InferenceRequest): Promise<string
   let modelResponse = response.choices[0]?.message?.content
   if (modelResponse) {
     // Extract any model thinking process
-    const match = modelResponse?.match(/^<thought>(.*?)<\/thought>/)
+    const match = modelResponse?.match(/^\s*<thought>(.*?)<\/thought>/)
     if (match) {
       core.startGroup('Chat completion thoughts')
       core.info(match[1])
