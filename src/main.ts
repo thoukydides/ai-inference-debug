@@ -82,9 +82,6 @@ export async function run(): Promise<void> {
       token,
       customHeaders,
     )
-    core.startGroup('actions/ai-inference-debug inferenceRequest')
-    core.info(JSON.stringify(inferenceRequest, null, 4))
-    core.endGroup()
 
     const enableMcp = core.getBooleanInput('enable-github-mcp') || false
 

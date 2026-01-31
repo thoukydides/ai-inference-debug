@@ -52,7 +52,7 @@ export async function simpleInference(request: InferenceRequest): Promise<string
     top_p: request.topP,
   }
 
-  // Request return of internal reasoning tokens from Gemini 3 models
+  // Enable thought summary in responses from Gemini 3 models
   if (request.modelName.startsWith('gemini-3')) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const x = chatCompletionRequest as any
@@ -72,29 +72,41 @@ export async function simpleInference(request: InferenceRequest): Promise<string
     chatCompletionRequest.response_format = request.responseFormat as any
   }
 
+  // Log the final request
+  core.startGroup('Chat completion request')
+  core.info(JSON.stringify(chatCompletionRequest, null, 4))
+  core.endGroup()
+
   const response = await chatCompletion(client, chatCompletionRequest, 'simpleInference')
+  core.debug(`Raw response:\n${JSON.stringify(response, null, 4)}`)
 
   // Log token usage
   if (response.usage) {
     const {prompt_tokens, completion_tokens, total_tokens} = response.usage
-    core.info(`Tokens used: ${total_tokens} (Prompt: ${prompt_tokens}, Completion: ${completion_tokens})`)
+    core.info(`Tokens used: ${total_tokens} (prompt=${prompt_tokens} + completion=${completion_tokens})`)
     const reasoningTokens = response.usage.completion_tokens_details?.reasoning_tokens
-    if (reasoningTokens) core.info(`Reasoning tokens included in completion: ${reasoningTokens}`)
+    if (reasoningTokens) core.info(`Reasoning tokens: ${reasoningTokens}`)
   }
 
-  const message = response.choices[0]?.message
+  let modelResponse = response.choices[0]?.message?.content
+  if (modelResponse) {
+    // Extract any model thinking process
+    const match = modelResponse?.match(/^<thought>(.*?)<\/thought>/)
+    if (match) {
+      core.startGroup('Chat completion thoughts')
+      core.info(match[1])
+      core.endGroup()
+      modelResponse = modelResponse.substring(match[0].length)
+    }
 
-  // Log model thinking process
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reasoning = (message as any)?.reasoning_content
-  if (reasoning) {
-    core.group('Model Thinking Process', async () => {
-      core.info(reasoning)
-    })
+    // Log response
+    core.startGroup('Chat completion response')
+    core.info(modelResponse)
+    core.endGroup()
+  } else {
+    core.info('Chat completion response: No response content')
   }
 
-  const modelResponse = message?.content
-  core.info(`Model response: ${modelResponse || 'No response content'}`)
   return modelResponse || null
 }
 
