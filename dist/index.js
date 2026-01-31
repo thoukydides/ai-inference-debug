@@ -58352,7 +58352,7 @@ async function simpleInference(request) {
     let modelResponse = response.choices[0]?.message?.content;
     if (modelResponse) {
         // Extract any model thinking process
-        const match = modelResponse?.match(/^\s*<thought>(.*?)<\/thought>/);
+        const match = modelResponse?.match(/^\s*<thought>(.*?)<\/thought>/s);
         if (match) {
             coreExports.startGroup('Chat completion thoughts');
             coreExports.info(match[1]);
