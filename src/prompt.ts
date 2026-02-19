@@ -29,6 +29,11 @@ export interface TemplateVariables {
  * Parse template variables from YAML input string
  */
 export function parseTemplateVariables(input: string): TemplateVariables {
+  // Remove any non-printable characters that might cause YAML parsing to fail
+  // eslint-disable-next-line no-control-regex, prettier/prettier
+  const PATTERN_NON_PRINTABLE =
+    /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x84\x86-\x9F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g
+  input = input.replace(PATTERN_NON_PRINTABLE, '')
   if (!input.trim()) {
     return {}
   }
